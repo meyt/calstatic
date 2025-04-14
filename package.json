@@ -1,0 +1,14 @@
+{
+  "name": "calstatic",
+  "version": "1.0.0",
+  "description": "Static version of all calendars supported by ICU.",
+  "author": "Meyt",
+  "license": "MIT",
+  "scripts": {
+    "generate": "node generate.js && node generate-dilami.js",
+    "serve": "node serve-demo.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

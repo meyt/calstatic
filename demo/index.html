@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>calstatic Demo</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    .calendar-table {
+      width: 100%;
+      border-color: #eee;
+    }
+    .calendar-table th, .calendar-table td {
+      text-align: center;
+    }
+    .calendar-table th {
+      background-color: #f8f9fa;
+    }
+    .today {
+      background-color: #e6f7ff;
+      font-weight: bold;
+    }
+    .calendar-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .calendar-link {
+      display: block;
+      padding: 8px 12px;
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      text-decoration: none;
+      color: #212529;
+      transition: all 0.2s;
+      font-size: .9rem;
+    }
+    .calendar-link:hover, .calendar-link.active {
+      background-color: #0d6efd;
+      color: white;
+      border-color: #0d6efd;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="container pb-4">
+    <div class="row">
+      <div class="col-12 col-md-4">
+        <div class="row mt-2 align-items-center">
+          <div class="col">
+            <h1>calstatic Demo</h1>
+          </div>
+          <div class="col-auto">
+            <a href="https://github.com/meyt/calstatic">SOURCE</a>
+          </div>
+        </div>
+        <div class="calendar-list">
+          <input
+            type="number"
+            class="form-control"
+            v-model="year"
+            placeholder="Year"
+            :min="minYear"
+            :max="maxYear"
+          >
+
+          <select class="form-select" v-model="month">
+            <option
+              v-for="(m, index) in months"
+              :value="index + 1"
+              :key="index"
+            >{{ m }}
+            </option>
+          </select>
+          <a href="#"
+             v-for="calendar in calendarOptions"
+             :key="calendar.key"
+             class="calendar-link"
+             :class="{ active: selectedCalendar === calendar.key }"
+             @click.prevent="selectCalendar(calendar.key)">
+            {{ calendar.name1 }}
+            <span v-if="calendar.name2" style="font-size: .7em"> ({{ calendar.name2 }})</span>
+          </a>
+        </div>
+      </div>
+      <div class="col-12 col-md-8 pt-3">
+        <div v-if="error" class="alert alert-danger">{{ error }}</div>
+        <div v-if="invalidYear" class="alert alert-danger">The year must be between {{minYear}} and {{ maxYear }}</div>
+        <h3 v-if="isLoading">Loading...</h3>
+        <div v-if="calendarData && !isLoading && !invalidYear" >
+          <h3>{{ months[month - 1] }} {{ year }} in {{ getSelectedCalendarName() }}</h3>
+          <table class="calendar-table table-bordered table-sm mt-3">
+            <thead>
+              <tr>
+                <th v-for="day in dayNames" :key="day"><small>{{ day }}</small></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(week, weekIndex) in monthDays" :key="weekIndex">
+                <td v-for="(day, dayIndex) in week" :key="dayIndex"
+                    :class="{
+                      'text-muted': !day || !day.date,
+                      'today': day && day.date && isToday(day.date)
+                    }">
+                  <div v-if="day && day.date">{{ day.date.getDate() }}</div>
+                  <div v-if="day && day.convertedDate" class="small text-primary">{{ day.convertedDate }}</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        const today = new Date();
+        return {
+          calendarOptions: [
+            { key: 'buddhist', name1: 'Buddhist', name2: '' },
+            { key: 'chinese', name1: 'Chinese', name2: '' },
+            { key: 'coptic', name1: 'Coptic', name2: '' },
+            { key: 'dangi', name1: 'Dangi', name2: '' },
+            { key: 'ethiopic', name1: 'Ethiopic', name2: '' },
+            { key: 'ethioaa', name1: 'Ethiopic', name2: 'Amete Alem' },
+            { key: 'hebrew', name1: 'Hebrew', name2: '' },
+            { key: 'indian', name1: 'Indian', name2: '' },
+            { key: 'islamic', name1: 'Hijri', name2: '' },
+            { key: 'islamic-civil', name1: 'Hijri', name2: 'tabular, civil epoch' },
+            { key: 'islamic-rgsa', name1: 'Hijri', name2: 'Saudi Arabia, sighting' },
+            { key: 'islamic-tbla', name1: 'Hijri', name2: 'tabular, astronomical epoch' },
+            { key: 'islamic-umalqura', name1: 'Hijri', name2: 'Umm al-Qura' },
+            { key: 'japanese', name1: 'Japanese', name2: '' },
+            { key: 'persian', name1: 'Persian', name2: 'Jalaali' },
+            { key: 'roc', name1: 'Minguo', name2: '' },
+            { key: 'dilami', name1: 'Dilami', name2: 'Gilaki' },
+          ],
+          months: [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+          ],
+          dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+          selectedCalendar: 'persian',
+          year: today.getFullYear(),
+          month: today.getMonth() + 1,
+          calendarData: null,
+          loadedCalendars: {},
+          isLoading: false,
+          error: null,
+          today: today,
+          minYear: 1970,
+          maxYear: 3000,
+        }
+      },
+      computed: {
+        invalidYear () {
+          return this.year < this.minYear || this.year >= this.maxYear
+        },
+        monthDays() {
+          if (!this.calendarData) return [];
+
+          // Get first day of month and total days in month
+          const firstDay = new Date(this.year, this.month - 1, 1).getDay();
+          const daysInMonth = new Date(this.year, this.month, 0).getDate();
+
+          // Create array of weeks (each week is an array of 7 days)
+          const weeks = [];
+          let currentDay = 1;
+
+          for (let week = 0; week < 6; week++) {
+            const days = [];
+
+            for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+              if ((week === 0 && dayOfWeek < firstDay) || currentDay > daysInMonth) {
+                // Empty cell before first day or after last day of month
+                days.push(null);
+              } else {
+                const date = new Date(this.year, this.month - 1, currentDay);
+                const convertedDate = this.getConvertedDate(date);
+                days.push({ date, convertedDate });
+                currentDay++;
+              }
+            }
+
+            weeks.push(days);
+            if (currentDay > daysInMonth) break;
+          }
+
+          return weeks;
+        }
+      },
+      methods: {
+        isToday(date) {
+          return date.getDate() === this.today.getDate() &&
+                 date.getMonth() === this.today.getMonth() &&
+                 date.getFullYear() === this.today.getFullYear();
+        },
+        selectCalendar(calendar) {
+          if (this.selectedCalendar === calendar && this.calendarData) {
+            return; // Already loaded this calendar
+          }
+          this.selectedCalendar = calendar;
+          this.loadCalendarData();
+        },
+        getSelectedCalendarName() {
+          const calendar = this.calendarOptions.find(c => c.key === this.selectedCalendar);
+          return calendar.name1 + (calendar.name2 ? ` (${calendar.name2})` : '')
+        },
+        async loadCalendarData() {
+          if (this.loadedCalendars[this.selectedCalendar]) {
+            this.calendarData = this.loadedCalendars[this.selectedCalendar];
+            return;
+          }
+
+          this.isLoading = true;
+          this.error = null;
+
+          try {
+            // Add random query string to prevent caching
+            const r = Math.random().toString(36).substring(2);
+            const response = await fetch(
+              `./calendars/${this.selectedCalendar}_${this.minYear}-${this.maxYear}.json?r=${r}`
+            );
+            if (!response.ok) throw new Error('Failed to load calendar data');
+
+            const data = await response.json();
+            this.calendarData = data;
+            // Cache the loaded calendar
+            this.loadedCalendars[this.selectedCalendar] = data;
+          } catch (err) {
+            this.error = `Error loading calendar data: ${err.message}`;
+            this.calendarData = null;
+          } finally {
+            this.isLoading = false;
+          }
+        },
+        getConvertedDate(date) {
+          if (!this.calendarData) return '';
+
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1; // JS months are 0-indexed
+          const day = date.getDate();
+
+          // Check if we have data for this year, month, and day
+          if (this.calendarData[year] &&
+              this.calendarData[year][month] &&
+              this.calendarData[year][month][day]) {
+            return this.calendarData[year][month][day];
+          }
+
+          return '';
+        }
+      },
+      mounted() {
+        this.loadCalendarData();
+
+        // Watch for changes in year/month
+        this.$watch(
+          () => [this.year, this.month],
+          () => {
+            // No need to reload data, just recompute monthDays
+          }
+        );
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
